@@ -36,11 +36,21 @@ export class UserController {
     return this.userService.updatePassword(id, updatePasswordDto);
   }
 
-  @Patch('/forgotPassword/:id')
+  @Patch('/forgotPassword')
   forgotPassword(
-    @Param('id') id,
-    @Body() updatePasswordDto: { newPassword: string },
+    @Body() updatePasswordDto: { email: string; newPassword: string },
   ) {
-    return this.userService.forgotPassword(id, updatePasswordDto.newPassword);
+    return this.userService.forgotPassword(
+      updatePasswordDto.email,
+      updatePasswordDto.newPassword,
+    );
+  }
+
+  @Post('/email')
+  async emailSend(@Body() emailDto: { email: string }) {
+    const min = 100000; // the minimum 6-digit number
+    const max = 999999; // the maximum 6-digit number
+    const otp = Math.floor(Math.random() * (max - min + 1)) + min;
+    return this.userService.sendEmail(emailDto.email, otp);
   }
 }

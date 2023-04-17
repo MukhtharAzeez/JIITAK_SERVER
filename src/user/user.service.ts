@@ -1,11 +1,11 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { UserDto } from './models/user.dto';
-import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { UserEntity } from './models/post.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
 import { UpdatePasswordDto } from './models/updatePassword.dto';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class UserService {
@@ -42,6 +42,11 @@ export class UserService {
       } else {
         throw new HttpException('Invalid credentials', HttpStatus.BAD_REQUEST);
       }
+    } else {
+      throw new HttpException(
+        'You do not have an account',
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
@@ -88,16 +93,56 @@ export class UserService {
     }
   }
 
-  async forgotPassword(id: number, newPassword: string) {
+  async forgotPassword(email: string, newPassword: string) {
     const password = await argon2.hash(newPassword);
 
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .update(UserEntity)
       .set({ password })
-      .where('id = :id', { id })
+      .where('email = :email', { email })
       .returning('*');
     const result = await queryBuilder.execute();
     return result.raw[0];
+  }
+
+  async sendEmail(email: string, otp: number) {
+    try {
+      const checkUser = await this.userRepository.findOne({
+        where: { email: email },
+      });
+      if (!checkUser) {
+        return false;
+      }
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: 'mukhtharazeez28@gmail.com',
+          pass: 'nlwvbqnasvkjssqc',
+        },
+      });
+
+      const mailOptions = {
+        from: 'mukhtharazeez28@gmail.com',
+        to: email,
+        subject: 'OTP to change password',
+        text: `Hello, this is from the web application ,${otp} is your One Time Password enter this OTP to reset your password!`,
+      };
+
+      transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+          console.log(error);
+          throw new HttpException(
+            'something went wrong ',
+            HttpStatus.FORBIDDEN,
+          );
+        } else {
+          console.log('Email sent: ' + info.response);
+        }
+      });
+      return otp;
+    } catch (error) {
+      console.log(error);
+    }
   }
 }
